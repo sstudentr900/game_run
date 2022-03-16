@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            /* height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center; */
+            background: #000;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id='game'></canvas>
+    <!--音樂 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.0.8/howler.min.js"></script>
+    <script>
+        const without = (array, filtered) => array.filter(n => n != filtered);
+        // const getRandomType = () => Math.random() > 0.5 ? 0 : 1; //0~1
+        const getRandomNum = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+        const fibonacci = function(position) {
+            //1,1,3,5
+            if (position <= 2) {
+                // position === 1 || position === 2
+                return 1
+            } else {
+                return fibonacci(position - 1) + fibonacci(position - 2)
+            }
+        }
+
+        function Game() {
+            // this.ww = window.innerWidth > 1600 ? 1600 : window.innerWidth;
+            this.ww = 800;
+            // this.hh = window.innerHeight > 700 ? 700 : window.innerHeight;
+            // this.ww = window.innerWidth;
+            // this.hh = window.innerHeight;
+            this.hh = 640;
+            //ui
+            this.ui = {
+                //ul   
+                obj: {
+                    x: 1371,
+                    y: 572,
+                    px: 30,
+                    py: 16,
+                    w: 115,
+                    h: 41,
+                },
+                //星
+                star: {
+                    x: 1316,
+                    y: 572,
+                    px: 20,
+                    py: 10,
+                    w: 52,
+                    h: 52,
+                },
+                //分數
+                score: {
+                    px: 104,
+                    py: 43,
+                    s: 0, //分數
+                },
+                //時間
+                timeBar: {
+                    px: 63,
+                    py: 51,
+                    w: 62,
+                    h: 5,
+                    r: 10,
+                    c: '#FC7B88',
+                    tw: 62, //時間寬度
+                    time: 30, //遊戲總時間
+                    nowTime: 0 //當前時間
+                },
+                //倒數
+                reciprocal: {
+                    lastTime: 5, //倒數5秒
+                    effectsTime: 8, //特效總時間
+                    effectsTimeNow: 0, //特效當前時間
+                    effectsTimeInterval: 6, //特效間隔時間
+                    speed: 1, //障礙物速度 背景速度
+                }
+            };
+            this.ui.timeBar.nowTime = this.ui.timeBar.time;
+            //角色
+            this.roles = {
+                x: 0,
+                y: 385,
+                px: 20,
+                py: 165 + (this.hh - 180) / 2,
+                tx: 0,
+                ty: 0,
+                w: 190,
+                h: 182,
+                s: 'walk', //當前狀態
+                walk: [4, 5, 6, 7],
+                walkTime: 9, //走路速度
+                jumpA: [1], //jumpA張數
+                jumpB: [2], //jumpB張數
+                // jumpATime: 0.08, //jumpA係數
+                // jumpBTime: 0.1, //jumpA係數
+                // jumpHeight: 18, //跳上的速度
+                // jumpTime: 10, //跳上的速度
+                jumpF: 0, //跳上當前的張數
+                // jumpFLeng: 4, //跳上的總張數
+                jumpFLeng: 12, //跳上的速度
+                jumpNumber: 0, //跳次數
+                duck: [8, 9], //跳次數
+                hit: [3], //碰撞張數
+                hitTime: 2, //碰撞時間
+                hitF: 0, //當前碰撞張數
+                hitEffects: false, //hit特效
+                // eat: [2],
+                eatTime: 0,
+                eatScore: 0,
+                eatEffects: false, //eat特效
+                walkLeft: false,
+                walkRight: false,
+                ff: 0, //當前張數
+                so: '0.1', //陰影透明度
+                sw: 3, //陰影寬度
+            };
+            this.roles.jumpF = this.roles.jumpFLeng;
+            //障礙物
+            this.obstacle = {
+                objs: [{
+                    x: 927,
+                    y: 571,
+                    w: 60,
+                    h: 90,
+                    // py: [200 + (this.hh - 90) / 2],
+                    t: 'BAFFLE',
+                }, {
+                    x: 992,
+                    y: 571,
+                    w: 125,
+                    h: 90,
+                    // py: [200 + (this.hh - 90) / 2],
+                    t: 'BAFFLE',
+                }, {
+                    x: 1120,
+                    y: 571,
+                    w: 190,
+                    h: 90,
+                    // py: [200 + (this.hh - 90) / 2],
+                    t: 'BAFFLE',
+                }, {
+                    x: 1099,
+                    y: 667,
+                    w: 100,
+                    h: 85,
+                    // py: [200 + (this.hh - 85) / 2],
+                    fly: [1099, 1199], //飛張數
+                    flyTime: 8, //飛速度
+                    f: 0, //當前張數
+                    t: 'BIRD',
+                }, {
+                    x: 739,
+                    y: 571,
+                    w: 40,
+                    h: 90,
+                    // py: [200 + (this.hh - 90) / 2, (this.hh - 90) / 2],
+                    t: 'ICE01',
+                    s: 10, //分數
+                    n: 5 //次數
+                }, {
+                    x: 783,
+                    y: 571,
+                    w: 40,
+                    h: 90,
+                    // py: [200 + (this.hh - 90) / 2, (this.hh - 90) / 2],
+                    t: 'ICE02',
+                    s: 20, //分數
+                    n: 4 //次數
+                }, {
+                    x: 829,
+                    y: 571,
+                    w: 40,
+                    h: 90,
+                    // py: [200 + (this.hh - 90) / 2, (this.hh - 90) / 2],
+                    t: 'ICE03',
+                    s: 30, //分數
+                    n: 3 //次數
+                }, {
+                    x: 873,
+                    y: 571,
+                    w: 48,
+                    h: 50,
+                    // py: [200 + (this.hh - 50) / 2, (this.hh - 50) / 2],
+                    t: 'MONEY',
+                    s: 40, //分數
+                    n: 2 //次數
+                }],
+                distance: 600, //障礙物距離多遠出現
+                deletTime: 2, //撞到障礙物減時間(s)
+                speed: 10, //障礙物移動速度
+                speedAdd: 0.2, //每次都多增加移動速度
+                speedMax: 30, //速度最大
+                nowObj: [], //當前障礙物
+            };
+            //圖片音樂
+            this.material = {
+                data: {
+                    'img': 'https://i.imgur.com/yJUkR6o.png',
+                    'hit': 'audio/hit.mp3',
+                    'jump': 'audio/jump.mp3',
+                    'eat': 'audio/eat.mp3',
+                    'end': 'audio/end.mp3',
+                    'star': 'audio/star.mp3',
+                },
+                length: 0,
+                now: 0
+            }
+            this.material.length = Object.keys(this.material.data).length;
+            //背景
+            this.bg = {
+                x: [0, 1800],
+                y: 0,
+                w: 1800,
+                h: 380,
+                xPos: 0,
+                yPos: (this.hh - 380) / 2,
+                // s: 3.5 //速度
+            };
+            this.sourceXPos1 = this.bg.x[getRandomNum(0, 1)];
+            this.sourceXPos2 = this.bg.x[getRandomNum(0, 1)];
+            this.bg2 = {
+                x: 1899,
+                y: 385,
+                w: 1700,
+                h: 347,
+                xPos: 0,
+                yPos: ((this.hh - 347) / 2) - (this.bg.h / 3),
+                s: 1 //速度
+            };
+            //開始
+            this.star = {
+                bg: {
+                    x: 0,
+                    y: 571,
+                    px: (this.ww - 280) / 2,
+                    py: [-200, ((this.hh / 2) - 186) / 2],
+                    w: 280,
+                    h: 186,
+                },
+                btn1: {
+                    x: 285,
+                    y: 571,
+                    px: (this.ww - 222) / 2,
+                    py: 40 + (this.hh / 2) + (((this.hh / 4) - 72) / 2),
+                    w: 223,
+                    h: 72,
+                },
+                btn2: {
+                    y: 648,
+                    py: 40 + 72 + 20 + (this.hh / 2) + (((this.hh / 4) - 72) / 2),
+                    a: './' //連結
+                }
+            };
+            //結束
+            this.end = {
+                bg: {
+                    x: 1327,
+                    y: 654,
+                    px: (this.ww - 280) / 2,
+                    py: (this.hh / 2) - 104 - (144 - ((104 + 144) / 2)) - 100,
+                    // py: 20 + ((this.hh / 2) - 104) / 2,
+                    w: 280,
+                    h: 104,
+                },
+                bg2: {
+                    x: 1615,
+                    y: 614,
+                    px: (this.ww - 280) / 2,
+                    py: (this.hh / 2) - (144 - ((104 + 144) / 2)) - 100,
+                    w: 280,
+                    h: 144,
+                },
+                btn1: {
+                    x: 512,
+                    y: this.star.btn1.y,
+                    px: this.star.btn1.px,
+                    py: this.star.btn1.py,
+                    w: this.star.btn1.w,
+                    h: this.star.btn1.h,
+                    a: './' //連結
+                },
+                btn2: {
+                    y: this.star.btn2.y,
+                    py: this.star.btn2.py,
+                    a: './' //連結
+                }
+            };
+            //雲
+            this.cloud = {
+                x: [738, 919],
+                y: 667,
+                w: 175,
+                h: 85,
+                s: 1.5,
+                max_gap: 1000, //两朵云之间的最大间隙
+                min_gap: 400, //两朵云之间的最小间隙
+                max_py: 350, //云朵的最大高度
+                min_py: 50, //云朵的最小高度
+                length: 3, //最大云朵数量
+                clouds: [], //存储云朵
+            };
+            //當前場景編號
+            this.sceneNumber = 0;
+            //幾針
+            this.frameNumber = 0;
+            //按鍵Key
+            this.keycode = {
+                JUMP: {
+                    '38': 1,
+                    '32': 1
+                }, // Up, spacebar
+                DUCK: {
+                    '40': 1
+                }, //Down
+                LEFT: {
+                    '37': 1
+                },
+                RIGHT: {
+                    '39': 1
+                },
+            };
+            this.canvas = document.getElementById('game')
+            this.ctx = this.canvas.getContext('2d');
+            this.canvas.width = this.ww;
+            this.canvas.height = this.hh;
+            //loadImg
+            this.loadImg()
+        }
+        Game.prototype = {
+            mouseClick: function(o) {
+                var mousex = o.mousex;
+                var mousey = o.mousey;
+                var btnl = this.ww / 2 - o.w / 2
+                var btnR = this.ww / 2 + o.w / 2
+                if (mousex > btnl && mousex < btnR && mousey > o.py && mousey < o.py + o.h) {
+                    return true
+                } else {
+                    return false
+                }
+            },
+            ellipseTwo: function(x, y, a, b, c) {
+                this.ctx.save();
+                var c = c ? c : 'rgba(0, 0, 0, 0.1)'
+                var r = (a > b) ? a : b;
+                var ratioX = a / r;
+                var ratioY = b / r;
+                this.ctx.scale(ratioX, ratioY);
+                this.ctx.beginPath();
+                this.ctx.arc(x / ratioX, y / ratioY, r, 0, 2 * Math.PI, false);
+                this.ctx.closePath();
+                this.ctx.restore();
+                this.ctx.fillStyle = c;
+                this.ctx.fill();
+            },
+            roundRect: function(x, y, w, h, r, color) {
+                var min_size = Math.min(w, h);
+                if (r > min_size / 2) r = min_size / 2;
+                // 开始绘制
+                this.ctx.beginPath();
+                this.ctx.moveTo(x + r, y);
+                this.ctx.arcTo(x + w, y, x + w, y + h, r);
+                this.ctx.arcTo(x + w, y + h, x, y + h, r);
+                this.ctx.arcTo(x, y + h, x, y, r);
+                this.ctx.arcTo(x, y, x + w, y, r);
+                this.ctx.closePath();
+                this.ctx.fillStyle = color;
+                this.ctx.fill();
+                // return this;
+            },
+            rectInnerShadow: function(x, y, w, h, shadowColor, shadowBlur, lineWidth) {
+                var shadowColor = shadowColor || '#00f'; // 阴影颜色
+                var lineWidth = lineWidth || 20; // 边框越大，阴影越清晰
+                var shadowBlur = shadowBlur || 30; // 模糊级别，越大越模糊，阴影范围也越大。
+
+                this.ctx.save();
+                this.ctx.beginPath();
+
+                // 裁剪区(只保留内部阴影部分)
+                this.ctx.rect(x, y, w, h);
+                this.ctx.clip();
+
+                // 边框+阴影
+                this.ctx.beginPath();
+                this.ctx.lineWidth = lineWidth;
+                this.ctx.shadowColor = shadowColor;
+                this.ctx.shadowBlur = shadowBlur;
+                // 因线是由坐标位置向两则画的，所以要移动起点坐标位置，和加大矩形。
+                this.ctx.strokeRect(x - lineWidth / 2, y - lineWidth / 2, w + lineWidth, h + lineWidth);
+
+                // 取消阴影
+                this.ctx.shadowBlur = 0;
+
+                this.ctx.restore();
+            },
+            loadImg: function(callback) {
+                for (var k in this.material.data) {
+                    var value = this.material.data[k];
+                    // var fileName = value.indexOf('.png');
+                    // if (fileName > 0) {
+                    var fileName = value.split('.');
+                    if (fileName[1] == 'mp3') {
+                        // this.material.data[k] = new Audio();
+                        // this.material.data[k].src = value;
+                        // this.material.data[k].preload = 'metadata';
+                        // this.material.data[k].onloadedmetadata = function() {
+                        //     this.loadImgOk()
+                        // }.bind(this);
+                        var self = this;
+                        this.material.data[k] = new Howl({
+                            src: [value],
+                            onload: function() {
+                                self.loadImgOk()
+                            }
+                        })
+                    } else {
+                        this.material.data[k] = new Image();
+                        this.material.data[k].src = value;
+                        this.material.data[k].onload = function() {
+                            this.loadImgOk()
+                        }.bind(this)
+
+                    }
+                }
+            },
+            loadImgOk: function() {
+                this.material.now++;
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(0, 0, this.ww, this.hh);
+                this.ctx.fillStyle = "#fff";
+                this.ctx.font = 'bold  20px Microsoft JhengHei,Arial';
+                var txt = '正在加載 ' + (parseInt((this.material.now / this.material.length) * 100) - 1).toString() + ' %';
+                this.ctx.fillText(txt, (this.ww - this.ctx.measureText(txt).width) / 2, this.hh / 2);
+                if (this.material.now == this.material.length) {
+                    this.start();
+                }
+            },
+            start: function() {
+                var self = this;
+                this.smUpdate(0);
+                this.timer = setInterval(function() {
+                    //sm更新
+                    self.smRender();
+                    //針號
+                    self.frameNumber++;
+                }, 20)
+            },
+            bgUpdate: function() {
+                this.bg.xPos -= (this.obstacle.speed - 3);
+                // console.log('bg.xPos', this.obstacle.speed - 1)
+                if (this.bg.xPos < -this.bg.w) {
+                    this.bg.xPos = 0;
+                    this.sourceXPos1 = this.sourceXPos2;
+                    this.sourceXPos2 = this.bg.x[getRandomNum(0, 1)];
+                }
+
+                //bg house
+                this.bg2.xPos -= this.bg2.s;
+                if (this.bg2.xPos < -this.bg2.w) {
+                    this.bg2.xPos = 0;
+                }
+
+                //雲
+                this.creatCloud();
+                this.cloud.clouds.forEach(function(cloud) {
+                    cloud.render();
+                })
+            },
+            bgRender: function() {
+                //bg
+                this.ctx.fillStyle = '#96CAD6'
+                this.ctx.fillRect(0, 0, this.ww, this.hh / 2)
+
+                this.ctx.fillStyle = '#C7BDBB'
+                this.ctx.fillRect(0, this.hh / 2, this.ww, this.hh / 2)
+
+                //雲
+                this.cloud.clouds.forEach(function(cloud) {
+                    cloud.update();
+                })
+
+                //bg house
+                this.ctx.drawImage(this.material.data['img'],
+                    this.bg2.x, this.bg2.y,
+                    this.bg2.w, this.bg2.h,
+                    this.bg2.xPos, this.bg2.yPos,
+                    this.bg2.w, this.bg2.h);
+
+                this.ctx.drawImage(this.material.data['img'],
+                    this.bg2.x, this.bg2.y,
+                    this.bg2.w, this.bg2.h,
+                    this.bg2.xPos + this.bg2.w, this.bg2.yPos,
+                    this.bg2.w, this.bg2.h);
+
+                this.ctx.fillStyle = '#6EB9C4'
+                this.ctx.fillRect(0, this.hh / 2, this.ww, ((this.bg2.h) / 3) + 10)
+
+
+                //house
+                this.ctx.drawImage(this.material.data['img'],
+                    this.sourceXPos1, this.bg.y,
+                    this.bg.w, this.bg.h,
+                    this.bg.xPos, this.bg.yPos,
+                    this.bg.w, this.bg.h);
+
+                this.ctx.drawImage(this.material.data['img'],
+                    this.sourceXPos2, this.bg.y,
+                    this.bg.w, this.bg.h,
+                    this.bg.xPos + this.bg.w, this.bg.yPos,
+                    this.bg.w, this.bg.h);
+            },
+            roleAnimation: function(o) {
+                this.roles.ff = ++this.roles.ff % this.roles[o.s].length;
+                this.roles.x = this.roles.w * this.roles[o.s][this.roles.ff];
+            },
+            roleWalk: function(o) {
+                this.roles.hitEffects = false;
+                if (this.frameNumber % this.roles.walkTime == 0) {
+                    this.roleAnimation({
+                        's': o.s
+                    })
+                    var sw = 3;
+                    if (this.roles.ff == 2 || this.roles.ff == 0) {
+                        sw = 2.8
+                    }
+                    this.roles.sw = sw;
+                }
+            },
+            roleWalkLeft: function() {
+                this.roles.px -= 10;
+                if (this.roles.px < 20) {
+                    this.roles.px = 20
+                }
+            },
+            roleWalkRight: function() {
+                this.roles.px += 10
+                if (this.roles.px > this.ww - this.roles.w - 20) {
+                    this.roles.px = this.ww - this.roles.w - 20
+                }
+            },
+            roleHit: function(o) {
+                this.roleAnimation({
+                    's': o.s
+                })
+                this.roles.hitF++;
+                if (this.roles.hitF > this.roles.hitTime) {
+                    this.roles.hitF = 0;
+                    this.roles.jumpF = this.roles.jumpFLeng;
+                    this.roles.hitEffects = false;
+                    this.roles.so = '0.1';
+                    this.roles.ty = 0;
+                    this.roles.s = 'walk';
+                    this.roles.jumpNumber = 0;
+                }
+            },
+            roleHitCollision: function(Obstacle) {
+                this.roles.s = 'hit';
+                //-1
+                this.ui.timeBar.nowTime -= this.obstacle.deletTime;
+                this.timeBar(this.ui.timeBar.nowTime);
+                //hit
+                this.roles.hitEffects = true;
+                this.material.data.hit.currentTime = 0;
+                this.material.data.hit.play();
+                //障礙物消失
+                this.obstacle.nowObj = without(this.obstacle.nowObj, Obstacle);
+            },
+            roleJump: function(e) {
+                // console.log('roleJump')
+                if (this.roles.jumpNumber < 1) {
+                    this.material.data.jump.currentTime = 0;
+                    this.material.data.jump.play();
+                    this.roles.jumpNumber++;
+                    this.roles.s = 'jumpA';
+                }
+            },
+            roleJumpA: function(o) {
+                // console.log('jumpA');
+                this.roleAnimation({
+                    's': o.s
+                })
+                this.roles.hitEffects = false;
+                this.roles.so = '0';
+                this.roles.jumpF--;
+                this.roles.ty -= fibonacci(this.roles.jumpF);
+                if (this.roles.jumpF < 0) {
+                    this.roles.s = 'jumpB'
+                }
+            },
+            roleJumpB: function(o) {
+                // console.log('jumpB', o.se);
+                this.roleAnimation({
+                    's': o.s
+                })
+                this.roles.jumpF++;
+                this.roles.ty += fibonacci(this.roles.jumpF);
+                if (this.roles.ty > 0) {
+                    // console.log('---------------------------');
+                    this.roles.jumpF = this.roles.jumpFLeng;
+                    this.roles.so = '0.1';
+                    this.roles.ty = 0;
+                    this.roles.s = o.se;
+                    this.roles.jumpNumber = 0;
+                }
+            },
+            roleUpdate: function() {
+                //碰撞
+                this.obstacle.nowObj.forEach(function(Obstacle) {
+                    // console.log(this.roles.ty)
+                    if ((this.roles.px < Obstacle.objx) &&
+                        (this.roles.px + 35 + this.roles.w - 65 > Obstacle.objx) &&
+                        (this.roles.py + 25 + this.roles.ty < Obstacle.objy + Obstacle.objs.h) &&
+                        (this.roles.py + 25 + this.roles.ty + this.roles.h > Obstacle.objy + Obstacle.objs.h)) {
+                        if (Obstacle.objs.t != 'BAFFLE' && Obstacle.objs.t != 'BIRD') {
+                            //score
+                            this.ui.score.s += Obstacle.objs.s;
+                            this.roles.eatScore = Obstacle.objs.s;
+                            this.roles.eatEffects = true;
+                            //eat
+                            this.material.data.eat.currentTime = 0;
+                            this.material.data.eat.play();
+                            //障礙物消失
+                            this.obstacle.nowObj = without(this.obstacle.nowObj, Obstacle);
+                        } else if (Obstacle.objs.t == 'BAFFLE') {
+                            this.roleHitCollision(Obstacle);
+                        } else if (Obstacle.objs.t == 'BIRD') {
+                            if (this.roles.s != 'duck' && this.roles.ty == 0) {
+                                this.roleHitCollision(Obstacle);
+                            }
+                        }
+                    }
+                }.bind(this))
+
+                //計數
+                var status = this.roles.s;
+                if (status == 'duck' && this.roles.walkLeft ||
+                    status == 'walk' && this.roles.walkLeft) {
+                    this.roleWalkLeft();
+                }
+
+                if (status == 'duck' && this.roles.walkRight ||
+                    status == 'walk' && this.roles.walkRight) {
+                    this.roleWalkRight();
+                }
+
+                if (status == 'duck' && this.roles.ty == 0 ||
+                    status == 'walk' && this.roles.ty == 0) {
+                    this.roleWalk({
+                        's': status
+                    });
+                }
+
+                if (status == 'hit') {
+                    this.roleHit({
+                        's': status
+                    });
+                }
+
+                if (status == 'jumpA') {
+                    this.roleJumpA({
+                        's': status
+                    });
+                }
+
+                if (status == 'jumpB') {
+                    this.roleJumpB({
+                        's': status,
+                        'se': 'walk'
+                    });
+                }
+
+                if (status == 'duck' && this.roles.ty < 0) {
+                    this.roleJumpB({
+                        's': status,
+                        'se': 'duck'
+                    });
+                }
+            },
+            roleRender: function() {
+                //eat
+                if (this.roles.eatEffects) {
+                    this.roles.eatTime++;
+                    this.ctx.fillStyle = '#fff';
+                    this.ctx.strokeStyle = '#402203';
+                    this.ctx.lineWidth = 4;
+                    this.ctx.font = 'bold 20px Microsoft JhengHei,Arial';
+                    var txt = '+' + this.roles.eatScore;
+                    var txtw = (this.ctx.measureText(txt).width) / 2;
+                    this.ctx.strokeText(txt, this.roles.px + (this.roles.w / 2) - txtw - 2, this.roles.py + this.roles.ty);
+                    this.ctx.fillText(txt, this.roles.px + (this.roles.w / 2) - txtw - 2, this.roles.py + this.roles.ty);
+                    if (this.roles.eatTime > 25) {
+                        this.roles.eatTime = 0;
+                        this.roles.eatEffects = false;
+                    }
+                }
+
+                //hit
+                if (this.roles.hitEffects) {
+                    this.rectInnerShadow(0, 0, this.ww, this.hh, '#FF0606', 100, 60);
+                }
+
+                //shoadow
+                this.ellipseTwo(
+                    this.roles.w / 2 + this.roles.px,
+                    this.roles.h + this.roles.py,
+                    this.roles.w / this.roles.sw, 6, 'rgba(0, 0, 0, ' + this.roles.so + ')')
+
+                //roles
+                this.ctx.save();
+                this.ctx.translate(this.roles.tx, this.roles.ty);
+                // this.roundRect(this.roles.px, this.roles.py, this.roles.w, this.roles.h, game.ui.timeBar.r, game.ui.timeBar.c)
+                this.ctx.drawImage(this.material.data['img'],
+                    this.roles.x, this.roles.y,
+                    this.roles.w, this.roles.h,
+                    this.roles.px, this.roles.py,
+                    this.roles.w, this.roles.h);
+                this.ctx.restore();
+            },
+            starClickBtn: function(e) {
+                var e = e || window.event;
+                var mousex = e.clientX;
+                var mousey = e.clientY;
+                if (e.type == 'touchstart') {
+                    mousex = e.touches[0].clientX;
+                    mousey = e.touches[0].clientY;
+                }
+                var btn1 = this.mouseClick({
+                    'mousex': mousex,
+                    'mousey': mousey,
+                    'w': this.star.btn1.w,
+                    'h': this.star.btn1.h,
+                    'py': this.star.btn1.py,
+                })
+                if (btn1) {
+                    //背景音樂
+                    // this.material.data.star.play().then(() => this.material.data.star.pause());
+                    // setTimeout(() => this.material.data.star.play(), 200);
+                    setTimeout(() => {
+                        this.material.data.star.play()
+                        this.smUpdate(1);
+                    }, 200);
+                    this.canvas.onmousedown = '';
+                    this.canvas.ontouchstart = '';
+                    // this.material.data.star.play()
+                    // this.smUpdate(1);
+                }
+
+                var btn2 = this.mouseClick({
+                    'mousex': mousex,
+                    'mousey': mousey,
+                    'w': this.star.btn1.w,
+                    'h': this.star.btn1.h,
+                    'py': this.star.btn2.py,
+                })
+                if (btn2) {
+                    window.location.href = this.star.btn2.a;
+                }
+            },
+            endClickBtn: function(e) {
+                var e = e || window.event;
+                var mousex = e.clientX;
+                var mousey = e.clientY;
+                if (e.type == 'touchstart') {
+                    mousex = e.touches[0].clientX;
+                    mousey = e.touches[0].clientY;
+                }
+                var btn1 = this.mouseClick({
+                    'mousex': mousex,
+                    'mousey': mousey,
+                    'w': this.star.btn1.w,
+                    'h': this.star.btn1.h,
+                    'py': this.star.btn1.py,
+                })
+                if (btn1) {
+                    window.location.href = this.end.btn1.a;
+                }
+
+                var btn2 = this.mouseClick({
+                    'mousex': mousex,
+                    'mousey': mousey,
+                    'w': this.star.btn1.w,
+                    'h': this.star.btn1.h,
+                    'py': this.star.btn2.py,
+                })
+                if (btn2) {
+                    window.location.href = this.end.btn2.a;
+                }
+            },
+            timeBar: function(now) {
+                this.ui.timeBar.tw = (this.ui.timeBar.w / this.ui.timeBar.time) * now;
+                if (this.ui.timeBar.tw < 0) {
+                    this.ui.timeBar.tw = 0;
+                    this.ui.timeBar.nowTime = 0
+                }
+            },
+            smUpdate: function(n) {
+                var self = this;
+                //換場景
+                this.sceneNumber = n;
+                if (this.sceneNumber == 0) {
+                    this.canvas.onmousedown = this.starClickBtn.bind(this)
+                    this.canvas.ontouchstart = this.starClickBtn.bind(this)
+                }
+                if (this.sceneNumber == 1) {
+                    setTimeout(() => {
+                        //跳
+                        this.canvas.onmousedown = this.roleJump.bind(this)
+                        this.canvas.ontouchstart = this.roleJump.bind(this)
+                        document.addEventListener("keydown", (e) => {
+                            // console.log(e.keyCode)
+                            // this.keys[e.keyCode] = true;
+                            if (this.keycode.JUMP[e.keyCode]) {
+                                this.roleJump()
+                            }
+                            if (this.keycode.DUCK[e.keyCode]) {
+                                // if (this.roles.s == 'walk') {
+                                this.roles.s = 'duck';
+                                // }
+                            }
+                            if (this.keycode.LEFT[e.keyCode]) {
+                                this.roles.walkLeft = true;
+                            }
+                            if (this.keycode.RIGHT[e.keyCode]) {
+                                this.roles.walkRight = true;
+                            }
+                        });
+                        document.addEventListener("keyup", (e) => {
+                            if (this.keycode.DUCK[e.keyCode]) {
+                                this.roles.s = 'walk';
+                            }
+                            if (this.keycode.LEFT[e.keyCode]) {
+                                this.roles.walkLeft = false;
+                            }
+                            if (this.keycode.RIGHT[e.keyCode]) {
+                                this.roles.walkRight = false;
+                            }
+                            // console.log(e.keyCode)
+                            // this.keys[e.keyCode] = false;
+                        });
+                    }, 400)
+                }
+                if (this.sceneNumber == 2) {
+                    //背景音樂
+                    this.material.data.star.pause();
+                    this.material.data.end.currentTime = 0;
+                    this.material.data.end.play();
+                    this.canvas.onmousedown = this.endClickBtn.bind(this)
+                    this.canvas.ontouchstart = this.endClickBtn.bind(this)
+                }
+            },
+            smRender: function() {
+                if (this.sceneNumber == 0) {
+                    //背景
+                    this.bgRender();
+                    this.bgUpdate();
+
+                    //back
+                    this.ctx.fillStyle = 'rgba(0,0,0,.8)';
+                    this.ctx.fillRect(0, 0, this.ww, this.hh);
+
+                    //bg
+                    if (this.star.bg.py[0] < this.star.bg.py[1]) {
+                        this.star.bg.py[0] += 20
+                    } else {
+                        this.star.bg.py[0] = this.star.bg.py[1]
+                    }
+
+                    //title動畫
+                    this.ctx.drawImage(this.material.data['img'],
+                        this.star.bg.x, this.star.bg.y,
+                        this.star.bg.w, this.star.bg.h,
+                        this.star.bg.px, this.star.bg.py[0],
+                        this.star.bg.w, this.star.bg.h);
+
+                    //star btn
+                    this.ctx.drawImage(this.material.data['img'],
+                        this.star.btn1.x, this.star.btn1.y,
+                        this.star.btn1.w, this.star.btn1.h,
+                        this.star.btn1.px, this.star.btn1.py,
+                        this.star.btn1.w, this.star.btn1.h);
+
+                    //home btn
+                    this.ctx.drawImage(this.material.data['img'],
+                        this.star.btn1.x, this.star.btn2.y,
+                        this.star.btn1.w, this.star.btn1.h,
+                        this.star.btn1.px, this.star.btn2.py,
+                        this.star.btn1.w, this.star.btn1.h);
+                }
+                if (this.sceneNumber == 1) {
+                    this.bgRender();
+                    this.bgUpdate();
+
+                    //障礙物
+                    this.creatObstacle();
+                    this.obstacle.nowObj.forEach(function(Obstacle) {
+                        Obstacle.render();
+                        Obstacle.update();
+                    })
+
+
+                    //角色
+                    this.roleRender();
+                    this.roleUpdate();
+
+
+                    //分數
+                    this.ctx.drawImage(this.material.data['img'],
+                        this.ui.obj.x, this.ui.obj.y,
+                        this.ui.obj.w, this.ui.obj.h,
+                        this.ui.obj.px, this.ui.obj.py,
+                        this.ui.obj.w, this.ui.obj.h);
+                    this.ctx.fillStyle = "#fff";
+                    this.ctx.font = 'bold 24px Microsoft JhengHei,Arial';
+                    var scoretxt = this.ui.score.s
+                    var txtw = (this.ctx.measureText(scoretxt).width) / 2
+                    this.ctx.fillText(scoretxt, this.ui.score.px - txtw, this.ui.score.py);
+
+                    //時間
+                    if (this.frameNumber % 60 == 0 && this.ui.timeBar.nowTime > 0) {
+                        this.ui.timeBar.nowTime--;
+                        this.timeBar(this.ui.timeBar.nowTime);
+                    }
+                    this.roundRect(this.ui.timeBar.px, this.ui.timeBar.py, this.ui.timeBar.tw, this.ui.timeBar.h, this.ui.timeBar.r, this.ui.timeBar.c)
+
+                    //倒數5秒
+                    if (this.ui.timeBar.nowTime < this.ui.reciprocal.lastTime) {
+                        this.ui.reciprocal.effectsTimeNow++;
+                        // console.log('effectsTimeNow', this.ui.reciprocal.effectsTimeNow, this.ui.reciprocal.effectsTimeInterval, this.ui.reciprocal.effectsTime)
+                        if (this.ui.reciprocal.effectsTimeNow < this.ui.reciprocal.effectsTimeInterval) {
+                            this.rectInnerShadow(0, 0, this.ww, this.hh, '#FF0606', 20, 10);
+                        }
+                        if (this.ui.reciprocal.effectsTimeNow > this.ui.reciprocal.effectsTime) {
+                            this.ui.reciprocal.effectsTimeNow = 0
+                        }
+
+                        if (this.frameNumber % 60 == 0) {
+                            this.roles.walkTime = this.roles.walkTime < 6 ? 5 : this.roles.walkTime - this.ui.reciprocal.speed;
+                        }
+                        this.obstacle.speedAdd = 2;
+                        // this.roles.jumpFLeng = 8;
+                    }
+
+                    //stare
+                    this.ctx.drawImage(this.material.data['img'],
+                        this.ui.star.x, this.ui.star.y,
+                        this.ui.star.w, this.ui.star.h,
+                        this.ui.star.px, this.ui.star.py,
+                        this.ui.star.w, this.ui.star.h);
+
+
+                    //時間結束
+                    if (this.ui.timeBar.nowTime == 0) {
+                        this.smUpdate(2);
+                    }
+
+                    //border
+                    // this.ctx.fillStyle = "#000";
+                    // this.ctx.font = 'bold  12px Microsoft JhengHei,Arial';
+                    // this.ctx.beginPath()
+                    // for (var i = 0; i < 100; i++) {
+                    //     let pos = i * 20
+                    //     this.ctx.moveTo(pos, 0)
+                    //     this.ctx.lineTo(pos, this.hh)
+                    //     this.ctx.fillText(pos, pos, 10)
+
+                    //     this.ctx.moveTo(0, pos)
+                    //     this.ctx.lineTo(this.ww, pos)
+                    //     this.ctx.fillText(pos, 10, pos)
+                    // }
+                    // this.ctx.strokeStyle = 'rgba(0,0,0,0.2)'
+                    // this.ctx.stroke()
+                }
+                if (this.sceneNumber == 2) {
+                    this.bgRender();
+                    this.obstacle.nowObj.forEach(function(Obstacle) {
+                        Obstacle.update();
+                    })
+                    this.roleRender();
+
+                    //balck
+                    this.ctx.fillStyle = 'rgba(0,0,0,.8)';
+                    this.ctx.fillRect(0, 0, this.ww, this.hh);
+
+                    //title
+                    this.ctx.drawImage(this.material.data['img'],
+                        this.end.bg.x, this.end.bg.y,
+                        this.end.bg.w, this.end.bg.h,
+                        this.end.bg.px, this.end.bg.py,
+                        this.end.bg.w, this.end.bg.h);
+                    this.ctx.drawImage(this.material.data['img'],
+                        this.end.bg2.x, this.end.bg2.y,
+                        this.end.bg2.w, this.end.bg2.h,
+                        this.end.bg2.px, this.end.bg2.py,
+                        this.end.bg2.w, this.end.bg2.h);
+
+                    // py: (this.hh / 2) - 104 - ((this.hh / 2) - (((104 + 144) / 2) - 144)),
+                    // py: (this.hh / 2) - (144-((104 + 144) / 2)),
+                    // console.log(this.hh / 2, (144 - ((104 + 144) / 2)));
+
+                    //分數
+                    this.ctx.fillStyle = "#F0B42D";
+                    this.ctx.font = 'bold  60px Microsoft JhengHei,Arial';
+                    var txt = this.ui.score.s;
+                    var txtw = (this.ctx.measureText(txt).width) / 2
+                    this.ctx.fillText(txt, this.end.bg.px + 165 - txtw, this.end.bg.py + 190);
+
+                    //btn1    
+                    this.ctx.drawImage(this.material.data['img'],
+                        this.end.btn1.x, this.end.btn1.y,
+                        this.end.btn1.w, this.end.btn1.h,
+                        this.end.btn1.px, this.end.btn1.py,
+                        this.end.btn1.w, this.end.btn1.h);
+
+                    //btn1    
+                    this.ctx.drawImage(this.material.data['img'],
+                        this.end.btn1.x, this.end.btn2.y,
+                        this.end.btn1.w, this.end.btn1.h,
+                        this.end.btn1.px, this.end.btn2.py,
+                        this.end.btn1.w, this.end.btn1.h);
+
+                }
+            },
+            creatObstacle: function() {
+                var numObstacle = this.obstacle.nowObj.length;
+                if (!numObstacle) {
+                    this.obstacle.nowObj.push(new Obstacle())
+                }
+
+
+                // console.log('------------------------------------------------------------')
+                // console.log(this.obstacle.objs[1].t, '剩下幾次' + this.obstacle.objs[1].n)
+                // console.log(this.obstacle.objs[2].t, '剩下幾次' + this.obstacle.objs[2].n)
+                // console.log(this.obstacle.objs[3].t, '剩下幾次' + this.obstacle.objs[3].n)
+                // console.log(this.obstacle.objs[4].t, '剩下幾次' + this.obstacle.objs[4].n)
+            },
+            creatCloud: function() {
+                var numClouds = this.cloud.clouds.length;
+                if (numClouds) {
+                    var lastCloud = this.cloud.clouds[numClouds - 1];
+                    if (numClouds < this.cloud.length &&
+                        this.ww - lastCloud.obj.px > lastCloud.obj.gap &&
+                        getRandomNum(0, 1)) {
+                        this.cloud.clouds.push(new Cloud());
+                    }
+                } else {
+                    this.cloud.clouds.push(new Cloud());
+                }
+            }
+        }
+
+        function Cloud(rand) {
+            this.obj = {};
+            this.obj.x = game.cloud.x[getRandomNum(0, 1)];
+            this.obj.px = game.ww;
+            this.obj.py = getRandomNum(game.cloud.min_py, game.cloud.max_py);
+            this.obj.gap = getRandomNum(game.cloud.min_gap, game.cloud.max_gap);
+        }
+        Cloud.prototype = {
+            render: function() {
+                //云移動
+                this.obj.px -= game.cloud.s;
+
+                //过滤掉已经移出屏幕外的云
+                if (this.obj.px < -(game.cloud.w)) {
+                    game.cloud.clouds = without(game.cloud.clouds, this);
+                }
+            },
+            update: function() {
+                game.ctx.save();
+                game.ctx.drawImage(game.material.data['img'],
+                    this.obj.x, game.cloud.y,
+                    game.cloud.w, game.cloud.h,
+                    this.obj.px, this.obj.py,
+                    game.cloud.w, game.cloud.h);
+                game.ctx.restore();
+
+            }
+
+        }
+
+        function Obstacle(o) {
+            game.obstacle.speed += game.obstacle.speedAdd;
+            this.objs = game.obstacle.objs[getRandomNum(0, game.obstacle.objs.length - 1)];
+            this.shoadow = true;
+
+            //出現距離
+            if (game.ww < game.obstacle.distance) {
+                this.objx = game.obstacle.distance;
+            } else {
+                this.objx = game.ww;
+            }
+
+            //高度
+            if (this.objs.t == 'BAFFLE') {
+                this.objy = 200 + (game.hh - this.objs.h) / 2;
+            } else if (this.objs.t == 'BIRD') {
+                // if (getRandomNum(0, 1)) {
+                //     this.objy = 80 + (game.hh - this.objs.h) / 2;
+                // } else {
+                //     this.objy = 180 + (game.hh - this.objs.h) / 2;
+                // }
+                this.objy = 80 + (game.hh - this.objs.h) / 2;
+                this.shoadow = false;
+            } else if (getRandomNum(0, 1)) {
+                this.objy = 200 + (game.hh - this.objs.h) / 2;
+            } else {
+                this.shoadow = false;
+                this.objy = 20 + (game.hh - this.objs.h) / 2
+            }
+
+        }
+        Obstacle.prototype = {
+            render: function() {
+                //限制最大速度
+                if (game.obstacle.speed > game.obstacle.speedMax) {
+                    game.obstacle.speed = game.obstacle.speedMax
+                }
+                this.objx -= game.obstacle.speed;
+
+                //刪除 Obstacle
+                if (this.objx < -(this.objs.w)) {
+                    game.obstacle.nowObj = without(game.obstacle.nowObj, this);
+                }
+
+                //BIRD
+                if (this.objs.t == 'BIRD') {
+                    if (game.frameNumber % this.objs.flyTime == 0) {
+                        this.objs.f = ++this.objs.f % this.objs.fly.length;
+                        this.objs.x = this.objs.fly[this.objs.f];
+                        this.objx -= 20;
+                    }
+                }
+
+            },
+            update: function() {
+                game.ctx.save();
+
+                var av = 1.5;
+                if (this.objs.t != 'BAFFLE') {
+                    av = 2.2;
+                }
+
+                //MONEY shadow
+                if (this.objs.t == 'MONEY') {
+                    game.ctx.shadowColor = "RGBA(239,187,58,.8)";
+                    game.ctx.shadowBlur = 20;
+                }
+
+                //shoadow
+                if (this.shoadow) {
+                    game.ellipseTwo(
+                        this.objx + (this.objs.w / 2),
+                        this.objy + this.objs.h,
+                        (this.objs.w) / av, 6)
+                }
+
+                //Obstacle
+                // game.roundRect(this.objx, this.objy, this.objs.w, this.objs.h, game.ui.timeBar.r, game.ui.timeBar.c)
+                game.ctx.drawImage(game.material.data['img'],
+                    this.objs.x, this.objs.y,
+                    this.objs.w, this.objs.h,
+                    this.objx, this.objy,
+                    this.objs.w, this.objs.h);
+
+
+                game.ctx.restore();
+
+            }
+        }
+        var game = new Game();
+    </script>
+</body>
+
+</html>
